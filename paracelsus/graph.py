@@ -20,7 +20,7 @@ transformers: Dict[str, type[Union[Mermaid, Dot]]] = {
 }
 
 def find_modules_by_pattern(pattern: str) -> List[str]:
-    """Finds all modules that match the glob pattern."""
+    """Finds all modules that match the glob-like pattern for Python modules."""
     parts = pattern.split(".")
 
     star_index = None
