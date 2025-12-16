@@ -19,6 +19,7 @@ transformers: Dict[str, type[Union[Mermaid, Dot]]] = {
     "gv": Dot,
 }
 
+
 def find_modules_by_pattern(pattern: str) -> List[str]:
     """Finds all modules that match the glob-like pattern for Python modules."""
     parts = pattern.split(".")
@@ -28,14 +29,12 @@ def find_modules_by_pattern(pattern: str) -> List[str]:
         if part == "*":
             star_index = i
             break
-    
+
     prefix_parts = parts[:star_index]
-    suffix_parts = parts[star_index + 1:]
+    suffix_parts = parts[star_index + 1 :]
 
     if not suffix_parts:
-        raise ValueError(
-            f"Glob pattern '{pattern}' must specify a module name after '*'. "
-        )
+        raise ValueError(f"Glob pattern '{pattern}' must specify a module name after '*'. ")
 
     base_package_name = ".".join(prefix_parts)
     base_package = importlib.import_module(base_package_name)
@@ -56,9 +55,9 @@ def find_modules_by_pattern(pattern: str) -> List[str]:
             found_modules.append(target_module_name)
         except ImportError:
             continue
-    
+
     return found_modules
-        
+
 
 def get_graph_string(
     *,
