@@ -2,6 +2,7 @@ import os
 import shutil
 import sys
 import tempfile
+from functools import singledispatch
 from collections.abc import Generator
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,41 +16,40 @@ from sqlalchemy.orm import declarative_base, mapped_column
 UTC = timezone.utc
 
 
-def setup_sys_path_for_test(paths: Path | list[Path], module_prefix: str = "example") -> str | list[str]:
-    """Add paths to sys.path and clear module cache. Returns path(s) for cleanup."""
+@singledispatch
+def setup_sys_path_for_test(paths, module_prefix: str = "example") -> list[str]:
     # Clear module cache
     for name in list(sys.modules.keys()):
         if name == module_prefix or name.startswith(f"{module_prefix}."):
             del sys.modules[name]
 
-    # Normalize input
-    if isinstance(paths, Path):
-        paths_list = [paths]
-        single_path = True
-    else:
-        paths_list = paths
-        single_path = False
-
     # Add paths to sys.path
     path_strings = []
-    for path in paths_list:
+    for path in paths:
         path_str = str(path)
         path_strings.append(path_str)
         sys.path.insert(0, path_str)
 
-    return path_strings[0] if single_path else path_strings
+    return path_strings
 
 
-def cleanup_sys_path(paths: str | list[str]) -> None:
-    """Remove path(s) from sys.path."""
-    if isinstance(paths, str):
-        paths_list = [paths]
-    else:
-        paths_list = paths
+@setup_sys_path_for_test.register
+def _(paths: Path, module_prefix: str = "example") -> str:
+    result = setup_sys_path_for_test([paths], module_prefix)
 
-    for path_str in paths_list:
+    return result[0]
+
+
+@singledispatch
+def cleanup_sys_path(paths) -> None:
+    for path_str in paths:
         if path_str in sys.path:
             sys.path.remove(path_str)
+
+
+@cleanup_sys_path.register
+def _(paths: str) -> None:
+    cleanup_sys_path([paths])
 
 
 @pytest.fixture
@@ -357,8 +357,9 @@ def namespace_package_path() -> Generator[Path, None, None]:
         temp_path = Path(temp_dir)
 
         # Copy both projects
-        shutil.copytree(template_base / "project1", temp_path / "project1", dirs_exist_ok=True)
-        shutil.copytree(template_base / "project2", temp_path / "project2", dirs_exist_ok=True)
+        for project_key in range(1, 3):
+            project_dir = f"project{project_key}"
+            shutil.copytree(template_base / project_dir, temp_path / project_dir, dirs_exist_ok=True)
 
         project1 = temp_path / "project1"
         project2 = temp_path / "project2"
