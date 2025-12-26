@@ -11,6 +11,7 @@ from sqlalchemy.schema import MetaData
 from .config import Layouts
 from .transformers.dot import Dot
 from .transformers.mermaid import Mermaid
+from .finders import find_modules_by_pattern
 
 transformers: Dict[str, type[Union[Mermaid, Dot]]] = {
     "mmd": Mermaid,
@@ -20,43 +21,23 @@ transformers: Dict[str, type[Union[Mermaid, Dot]]] = {
 }
 
 
-def find_modules_by_pattern(pattern: str) -> List[str]:
-    """Finds all modules that match the glob-like pattern for Python modules."""
-    parts = pattern.split(".")
+def _is_glob_pattern(pattern: str) -> bool:
+    """Check if a pattern contains any glob wildcard characters.
 
-    star_index = None
-    for i, part in enumerate(parts):
-        if part == "*":
-            star_index = i
-            break
+    Glob patterns can contain:
+    - * (any string)
+    - ? (single character)
+    - ** (recursive)
+    - [abc], [0-9], [!1] (character classes)
+    """
 
-    prefix_parts = parts[:star_index]
-    suffix_parts = parts[star_index + 1 :]
+    if "*" in pattern or "?" in pattern:
+        return True
 
-    if not suffix_parts:
-        raise ValueError(f"Glob pattern '{pattern}' must specify a module name after '*'. ")
+    if "[" in pattern and "]" in pattern:
+        return True
 
-    base_package_name = ".".join(prefix_parts)
-    base_package = importlib.import_module(base_package_name)
-    base_path = base_package.__path__[0]
-
-    found_modules = []
-
-    for importer, modname, ispkg in pkgutil.iter_modules([base_path]):
-        # Form a subpackage name
-        subpackage_name = f"{base_package_name}.{modname}"
-
-        # Form the full name of the target module
-        target_module_name = f"{subpackage_name}.{'.'.join(suffix_parts)}"
-
-        # Check that the module exists and add it to the list.
-        try:
-            importlib.import_module(target_module_name)
-            found_modules.append(target_module_name)
-        except ImportError:
-            continue
-
-    return found_modules
+    return False
 
 
 def get_graph_string(
@@ -92,7 +73,7 @@ def get_graph_string(
 
         search_pattern = module[:-2] if needs_wildcards_import else module
 
-        if "*" in search_pattern:
+        if _is_glob_pattern(search_pattern):
             # This is a glob pattern, find all the corresponding modules
             found_models = find_modules_by_pattern(search_pattern)
 

@@ -350,6 +350,38 @@ def multi_star_package_path() -> Generator[Path, None, None]:
 
 
 @pytest.fixture
+def character_classes_package_path() -> Generator[Path, None, None]:
+    """Create a package structure for testing character classes and ranges patterns."""
+    template_path = Path(os.path.dirname(os.path.realpath(__file__))) / "assets" / "character_classes"
+    with tempfile.TemporaryDirectory() as package_path:
+        shutil.copytree(template_path, package_path, dirs_exist_ok=True)
+        package_dir = Path(package_path)
+        os.chdir(package_path)
+
+        path_str = setup_sys_path_for_test(package_dir)
+        try:
+            yield Path(package_path)
+        finally:
+            cleanup_sys_path(path_str)
+
+
+@pytest.fixture
+def recursive_package_path() -> Generator[Path, None, None]:
+    """Create a package structure for testing recursive lookup patterns (**)."""
+    template_path = Path(os.path.dirname(os.path.realpath(__file__))) / "assets" / "recursive"
+    with tempfile.TemporaryDirectory() as package_path:
+        shutil.copytree(template_path, package_path, dirs_exist_ok=True)
+        package_dir = Path(package_path)
+        os.chdir(package_path)
+
+        path_str = setup_sys_path_for_test(package_dir)
+        try:
+            yield Path(package_path)
+        finally:
+            cleanup_sys_path(path_str)
+
+
+@pytest.fixture
 def namespace_package_path() -> Generator[Path, None, None]:
     """Create a namespace package structure (PEP 420) for testing."""
     template_base = Path(os.path.dirname(os.path.realpath(__file__))) / "assets" / "namespace"
