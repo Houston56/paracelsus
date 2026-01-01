@@ -6,8 +6,12 @@ ReturnT = TypeVar("ReturnT")
 class ValidationError(ValueError):
     pass
 
+
 class ErrorContainer(Protocol):
-    errors: list[ValidationError]
+    def add_error(self, error: ValidationError) -> None: ...
+
+    @property
+    def errors(self) -> list[ValidationError]: ...
 
 
 class Attribute(Generic[ReturnT]):
@@ -38,6 +42,6 @@ class Attribute(Generic[ReturnT]):
             try:
                 validator(self.name, value)
             except ValidationError as e:
-                instance.errors.append(e)
+                instance.add_error(e)
 
         instance.__dict__[self.name] = value
