@@ -1,17 +1,18 @@
 import importlib
 import os
-import sys
-from pathlib import Path
 import re
-import pkgutil
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import List, Set, Optional, Dict, Union
 
+from paracelsus.models.pattern import Pattern
 from sqlalchemy.schema import MetaData
 
 from .config import Layouts
 from .transformers.dot import Dot
 from .transformers.mermaid import Mermaid
-from .finders import find_modules_by_pattern
+from .finders import ModuleFinder
 
 transformers: Dict[str, type[Union[Mermaid, Dot]]] = {
     "mmd": Mermaid,
@@ -21,23 +22,31 @@ transformers: Dict[str, type[Union[Mermaid, Dot]]] = {
 }
 
 
-def _is_glob_pattern(pattern: str) -> bool:
-    """Check if a pattern contains any glob wildcard characters.
+def do_import(needs_wildcards_import: bool, module_path: str) -> bool:
+    if needs_wildcards_import:
+        exec(f"from {module_path} import *")
+    else:
+        importlib.import_module(module_path)
+    return True
 
-    Glob patterns can contain:
-    - * (any string)
-    - ? (single character)
-    - ** (recursive)
-    - [abc], [0-9], [!1] (character classes)
+
+def to_module_name(root: Path, path: Path) -> str:
     """
+    Converts a filesystem path to a Python dotted module string.
+    Example: /root/app/models.py -> app.models
+    """
+    try:
+        relative_path = path.resolve().relative_to(root)
+    except ValueError:
+        # Fallback if path is not relative to root (should not happen in normal usage)
+        return path.name
 
-    if "*" in pattern or "?" in pattern:
-        return True
+    if path.is_file():
+        clean_path = relative_path.with_suffix("")
+    else:
+        clean_path = relative_path
 
-    if "[" in pattern and "]" in pattern:
-        return True
-
-    return False
+    return ".".join(clean_path.parts)
 
 
 def get_graph_string(
@@ -68,28 +77,24 @@ def get_graph_string(
     # The modules holding the model classes have to be imported to get put in the metaclass model registry.
     # These modules aren't actually used in any way, so they are discarded.
     # They are also imported in scope of this function to prevent namespace pollution.
-    for module in import_module:
-        needs_wildcards_import = module.endswith(":*")
+    for module_lookup_mask in import_module:
+        module_path, import_modifier = module_lookup_mask, None
 
-        search_pattern = module[:-2] if needs_wildcards_import else module
+        if module_path.endswith(":*"):
+            module_path, import_modifier = module_path.split(":", 1)
 
-        if _is_glob_pattern(search_pattern):
-            # This is a glob pattern, find all the corresponding modules
-            found_models = find_modules_by_pattern(search_pattern)
+        pattern = Pattern(mask=module_path)
 
-            for found_model in found_models:
-                if needs_wildcards_import:
-                    # Combination: glob search + wildcard import
-                    exec(f"from {found_model} import *")
-                else:
-                    # Glob search only, normal import
-                    importlib.import_module(found_model)
-        elif needs_wildcards_import:
-            # Wildcard import only
-            exec(f"from {search_pattern} import *")
-        else:
-            # Normal module import
-            importlib.import_module(module)
+        if any(pattern.errors):
+            raise ValueError(pattern.serialized_errors)
+
+        current_root = Path.cwd()
+        finder = ModuleFinder(current_root, pattern.tokens)
+
+        with ThreadPoolExecutor() as executor:
+            for found_module_path in finder.find():
+                dot_path = to_module_name(current_root, found_module_path)
+                executor.submit(do_import, import_modifier == "*", dot_path)
 
     # Grab a transformer.
     if format not in transformers:
