@@ -27,14 +27,6 @@ transformers: Dict[str, type[Union[Mermaid, Dot]]] = {
 logger = logging.getLogger(__name__)
 
 
-def do_import(needs_wildcards_import: bool, module_path: str) -> bool:
-    if needs_wildcards_import:
-        exec(f"from {module_path} import *")
-    else:
-        importlib.import_module(module_path)
-    return True
-
-
 def to_module_name(root: Path, path: Path) -> str:
     """
     Converts a filesystem path to a Python dotted module string.
