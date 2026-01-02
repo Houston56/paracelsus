@@ -1,18 +1,21 @@
 import importlib
+import logging
 import os
 import re
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import List, Set, Optional, Dict, Union
+from queue import Queue
+from threading import Thread
+from typing import Dict, List, Optional, Set, Union
 
-from paracelsus.models.pattern import Pattern
 from sqlalchemy.schema import MetaData
 
+from paracelsus.models.pattern import Pattern
+
 from .config import Layouts
+from .finders import ModuleFinder
 from .transformers.dot import Dot
 from .transformers.mermaid import Mermaid
-from .finders import ModuleFinder
 
 transformers: Dict[str, type[Union[Mermaid, Dot]]] = {
     "mmd": Mermaid,
@@ -20,6 +23,8 @@ transformers: Dict[str, type[Union[Mermaid, Dot]]] = {
     "dot": Dot,
     "gv": Dot,
 }
+
+logger = logging.getLogger(__name__)
 
 
 def do_import(needs_wildcards_import: bool, module_path: str) -> bool:
@@ -49,6 +54,31 @@ def to_module_name(root: Path, path: Path) -> str:
     return ".".join(clean_path.parts)
 
 
+def consume_import_tasks(queue: Queue[dict], sentinel: object):
+    while True:
+        item = queue.get()
+
+        if item is sentinel:
+            break
+
+        needs_wildcards_import, module_name = item.values()
+        try:
+            # Check if already loaded to save time
+            if module_name in sys.modules:
+                continue
+
+            if needs_wildcards_import:
+                exec(f"from {module_name} import *")
+            else:
+                importlib.import_module(module_name)
+
+        except ImportError as e:
+            logger.error(f"Failed to load {module_name}: {e}")
+            raise e
+        finally:
+            queue.task_done()
+
+
 def get_graph_string(
     *,
     base_class_path: str,
@@ -74,6 +104,10 @@ def get_graph_string(
     base_class = getattr(base_module, class_name)
     metadata = base_class.metadata
 
+    import_queue_sentinel = object()
+    import_queue: Queue[Union[Dict[str, str], object]] = Queue()
+    import_worker = Thread(target=consume_import_tasks, args=(import_queue, import_queue_sentinel), daemon=True)
+    import_worker.start()
     # The modules holding the model classes have to be imported to get put in the metaclass model registry.
     # These modules aren't actually used in any way, so they are discarded.
     # They are also imported in scope of this function to prevent namespace pollution.
@@ -90,11 +124,14 @@ def get_graph_string(
 
         current_root = Path.cwd()
         finder = ModuleFinder(current_root, pattern.tokens)
+        needs_wildcards_import = import_modifier == "*"
 
-        with ThreadPoolExecutor() as executor:
-            for found_module_path in finder.find():
-                dot_path = to_module_name(current_root, found_module_path)
-                executor.submit(do_import, import_modifier == "*", dot_path)
+        for file_path in finder.find():
+            module_path = to_module_name(current_root, file_path)
+            import_queue.put({"needs_wildcards_import": needs_wildcards_import, "module_name": module_path})
+
+    import_queue.put(import_queue_sentinel)
+    import_worker.join()
 
     # Grab a transformer.
     if format not in transformers:
