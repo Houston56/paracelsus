@@ -80,7 +80,7 @@ class ModuleFinder:
 
     def _process_state(self, state: SearchState) -> Generator[Path, None, None]:
         """
-        Implement BFS
+        Implement BFS to search for files and directories matching the given pattern.
         """
         node = state.node
         path = state.path
