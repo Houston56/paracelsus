@@ -20,6 +20,34 @@ def test_get_graph_string(column_sort_arg, package_path):
     mermaid_assert(graph_string)
 
 
+@pytest.mark.skip(reason="Update mermaid_assert function to dynamically detect required models for validation")
+def test_get_graph_string_with_wildcard(single_level_package_path):
+    get_graph_string(
+        base_class_path="example.base:Base",
+        import_module=["example.*.models"],
+        include_tables=set(),
+        exclude_tables=set(),
+        python_dir=[single_level_package_path],
+        format="mermaid",
+        column_sort="key-based",
+    )
+    # mermaid_assert(graph_string)
+
+
+@pytest.mark.skip(reason="Update mermaid_assert function to dynamically detect required models for validation")
+def test_get_graph_with_wildcard_mask_in_namespace_package(namespace_package_path):
+    get_graph_string(
+        base_class_path="project1.example.base:Base",  # @TODO: How to resolve a base class within separate multiple packages
+        import_module=["project*.example.*.models"],
+        include_tables=set(),
+        exclude_tables=set(),
+        python_dir=[namespace_package_path],
+        format="mermaid",
+        column_sort="key-based",
+    )
+    # mermaid_assert(graph_string)
+
+
 def test_get_graph_string_with_exclude(package_path):
     """Excluding tables removes them from the graph string."""
     graph_string = get_graph_string(

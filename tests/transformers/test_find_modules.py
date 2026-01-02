@@ -1,7 +1,7 @@
 import pytest
 
-from paracelsus.graph import to_module_name
 from paracelsus.finders import ModuleFinder
+from paracelsus.graph import to_module_name
 from paracelsus.models.pattern import Pattern
 
 
@@ -224,7 +224,6 @@ def test_find_modules_by_pattern_recursive_lookup(recursive_package_path):
     assert "example.domain.users.models" not in found
 
 
-@pytest.mark.skip(reason="Need to implement validation rules")
 @pytest.mark.parametrize(
     "pattern",
     [
@@ -233,9 +232,11 @@ def test_find_modules_by_pattern_recursive_lookup(recursive_package_path):
         "example.v[1.models",  # Unclosed
         "example.v]1[.models",  # Reversed
         "example.v[1[2]].models",  # Nested
+        "example.v[**.models",  # Invalid recursive lookup
+        "example.**.*.models",  # Greedy lookup
     ],
 )
 def test_find_modules_by_pattern_missing_rule_error(pattern):
-    """Test token validation rule (example.v?..models) raises ValueError."""
+    """Test token validation rule. Must raise errors"""
     pattern = Pattern(mask=pattern)
     assert any(pattern.errors)
