@@ -83,6 +83,7 @@ def get_graph_string(
     omit_comments: bool = False,
     max_enum_members: int = 0,
     layout: Optional[Layouts] = None,
+    type_parameter_delimiter: str = "-",
 ) -> str:
     # Update the PYTHON_PATH to allow more module imports.
     sys.path.append(str(os.getcwd()))
@@ -128,7 +129,6 @@ def get_graph_string(
     # Grab a transformer.
     if format not in transformers:
         raise ValueError(f"Unknown Format: {format}")
-    transformer = transformers[format]
 
     # Keep only the tables which were included / not-excluded
     include_tables = resolve_included_tables(
@@ -137,7 +137,19 @@ def get_graph_string(
     filtered_metadata = filter_metadata(metadata=metadata, include_tables=include_tables)
 
     # Save the graph structure to string.
-    return str(transformer(filtered_metadata, column_sort, omit_comments=omit_comments, layout=layout))
+    # Note: type_parameter_delimiter only applies to Mermaid transformer
+    if format in ["mermaid", "mmd"]:
+        return str(
+            Mermaid(
+                filtered_metadata,
+                column_sort,
+                omit_comments=omit_comments,
+                layout=layout,
+                type_parameter_delimiter=type_parameter_delimiter,
+            )
+        )
+    else:
+        return str(Dot(filtered_metadata, column_sort, omit_comments=omit_comments))
 
 
 def resolve_included_tables(
