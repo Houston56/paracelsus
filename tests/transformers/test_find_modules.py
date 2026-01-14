@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 
 from paracelsus.finders import ModuleFinder
 from paracelsus.graph import to_module_name
@@ -10,7 +11,7 @@ def test_find_modules_by_pattern_single_level(single_level_package_path):
 
     pattern = Pattern(mask="example.*.models")
     found = [
-        to_module_name(single_level_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(single_level_package_path, pattern.tokens).find()
     ]
     expected_modules = {
@@ -27,7 +28,7 @@ def test_find_modules_by_pattern_nested_levels(nested_package_path):
 
     pattern = Pattern(mask="example.*.*.models")
     found = [
-        to_module_name(nested_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(nested_package_path, pattern.tokens).find()
     ]
     expected_modules = {
@@ -45,7 +46,7 @@ def test_find_modules_by_pattern_multiple_stars(multi_star_package_path):
 
     pattern = Pattern(mask="example.*.api.*.models")
     found = [
-        to_module_name(multi_star_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(multi_star_package_path, pattern.tokens).find()
     ]
     expected_modules = {
@@ -65,7 +66,7 @@ def test_find_modules_by_pattern_namespace_package(namespace_package_path):
 
     pattern = Pattern(mask="project*.example.*.models")
     found = [
-        to_module_name(namespace_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(namespace_package_path, pattern.tokens).find()
     ]
     expected_modules = {
@@ -82,7 +83,7 @@ def test_find_modules_by_pattern_single_character(single_level_package_path):
 
     pattern = Pattern(mask="example.fo?.models")
     found = [
-        to_module_name(single_level_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(single_level_package_path, pattern.tokens).find()
     ]
     expected_modules = {
@@ -101,7 +102,7 @@ def test_find_modules_by_pattern_character_class(character_classes_package_path)
     """
     pattern = Pattern(mask="example.api.v[12].models")
     found = [
-        to_module_name(character_classes_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(character_classes_package_path, pattern.tokens).find()
     ]
     expected_modules = {
@@ -120,7 +121,7 @@ def test_find_modules_by_pattern_character_range(character_classes_package_path)
     """
     pattern = Pattern(mask="example.api.v[0-9].models")
     found = [
-        to_module_name(character_classes_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(character_classes_package_path, pattern.tokens).find()
     ]
     expected_modules = {
@@ -148,7 +149,7 @@ def test_find_modules_by_pattern_complementation_character_class(character_class
     """
     pattern = Pattern(mask="example.api.v[!1].models")
     found = [
-        to_module_name(character_classes_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(character_classes_package_path, pattern.tokens).find()
     ]
 
@@ -165,7 +166,7 @@ def test_find_modules_by_pattern_complementation_character_range(character_class
     """
     pattern = Pattern(mask="example.api.v[!0-9].models")
     found = [
-        to_module_name(character_classes_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(character_classes_package_path, pattern.tokens).find()
     ]
 
@@ -185,7 +186,7 @@ def test_find_modules_by_pattern_mixed_wildcards(multi_star_package_path):
     """
     pattern = Pattern(mask="example.v?.*.*.models")
     found = [
-        to_module_name(multi_star_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(multi_star_package_path, pattern.tokens).find()
     ]
     expected_modules = {
@@ -208,7 +209,7 @@ def test_find_modules_by_pattern_recursive_lookup(recursive_package_path):
     """
     pattern = Pattern(mask="example.**.api.*.models")
     found = [
-        to_module_name(recursive_package_path, module_path)
+        to_module_name(Path.cwd(), module_path)
         for module_path in ModuleFinder(recursive_package_path, pattern.tokens).find()
     ]
     expected_modules = {
