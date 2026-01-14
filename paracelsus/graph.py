@@ -281,17 +281,27 @@ def serialize_metadata(
     omit_comments: bool = False,
     max_enum_members: int = 0,
     layout: Optional[Layouts] = None,
+    type_parameter_delimiter: str = "-",
 ) -> str:
     """
     Serializes MetaData to a string representation in the specified format.
     """
-    # Grab a transformer.
     if format not in transformers:
         raise ValueError(f"Unknown Format: {format}")
-    transformer = transformers[format]
+    # Mermaid supports extra options (enum truncation + type parameter delimiter sanitization).
+    if format in ["mermaid", "mmd"]:
+        return str(
+            Mermaid(
+                metadata,
+                column_sort,
+                omit_comments=omit_comments,
+                max_enum_members=max_enum_members,
+                layout=layout,
+                type_parameter_delimiter=type_parameter_delimiter,
+            )
+        )
 
-    # Serialize the graph structure to string.
-    return str(transformer(metadata, column_sort, omit_comments=omit_comments, layout=layout))
+    return str(Dot(metadata, column_sort, omit_comments=omit_comments, layout=layout))
 
 
 def get_graph_string(
@@ -306,6 +316,7 @@ def get_graph_string(
     omit_comments: bool = False,
     max_enum_members: int = 0,
     layout: Optional[Layouts] = None,
+    type_parameter_delimiter: str = "-",
 ) -> str:
     """
     Builds a graph structure and returns it as a serialized string.
@@ -328,6 +339,7 @@ def get_graph_string(
         omit_comments=omit_comments,
         max_enum_members=max_enum_members,
         layout=layout,
+        type_parameter_delimiter=type_parameter_delimiter,
     )
 
 
