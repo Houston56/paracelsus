@@ -88,31 +88,31 @@ def _find_base_classes_by_pattern(
             return [(module_path, base_class.metadata)]
         except (ImportError, AttributeError) as e:
             raise ValueError(f"Could not import base class from {base_class_path}: {e}")
-    
+
     # Extract pattern parts
     parts = base_class_path.split(":")
     if len(parts) != 2:
         raise ValueError(f"Invalid base_class_path format: {base_class_path}")
-    
+
     pattern_str, class_name = parts
-    
+
     # Create pattern for finding base.py modules
     pattern = Pattern(mask=pattern_str)
-    
+
     if any(pattern.errors):
         raise ValueError(pattern.serialized_errors)
-    
+
     # Find all matching base.py files
     finder = ModuleFinder(current_root, pattern.tokens)
     base_metadata_list = []
-    
+
     for file_path in finder.find():
         # Only consider base.py files
         if file_path.name != "base.py" and not file_path.name.endswith("base.py"):
             continue
-        
+
         module_path = to_module_name(current_root, file_path)
-        
+
         try:
             base_module = importlib.import_module(module_path)
             if hasattr(base_module, class_name):
@@ -121,10 +121,10 @@ def _find_base_classes_by_pattern(
         except (ImportError, AttributeError) as e:
             logger.warning(f"Could not import base class from {module_path}: {e}")
             continue
-    
+
     if not base_metadata_list:
         raise ValueError(f"No base classes found matching pattern: {base_class_path}")
-    
+
     return base_metadata_list
 
 
@@ -134,7 +134,7 @@ def _merge_metadata(metadata_list: List[tuple[str, MetaData]]) -> MetaData:
     If there are table name conflicts, prefixes are added based on the module path.
     """
     merged_metadata = MetaData()
-    
+
     for module_path, metadata in metadata_list:
         # Extract a prefix from module path to avoid conflicts
         # e.g., "project1.example.base" -> "project1_"
@@ -143,11 +143,11 @@ def _merge_metadata(metadata_list: List[tuple[str, MetaData]]) -> MetaData:
         if len(parts) > 1:
             # Use first part as prefix (e.g., "project1")
             prefix = f"{parts[0]}_"
-        
+
         for tablename, table in metadata.tables.items():
             # Check for conflicts
             prefixed_name = f"{prefix}{tablename}" if prefix else tablename
-            
+
             # If there's a conflict and we have a prefix, use prefixed name
             if prefixed_name in merged_metadata.tables and prefix:
                 logger.warning(
@@ -161,14 +161,14 @@ def _merge_metadata(metadata_list: List[tuple[str, MetaData]]) -> MetaData:
             else:
                 # No conflict
                 final_name = tablename if not prefix else prefixed_name
-            
+
             # Copy table to merged metadata
             if final_name not in merged_metadata.tables:
                 if hasattr(table, "to_metadata"):
                     table.to_metadata(merged_metadata, name=final_name)
                 else:
                     table.tometadata(merged_metadata, name=final_name)
-    
+
     return merged_metadata
 
 
@@ -192,15 +192,15 @@ def get_graph_metadata(
         sys.path.append(str(dir))
 
     current_root = Path.cwd()
-    
+
     # Handle base class path with or without wildcards
     has_wildcards = "*" in base_class_path or "?" in base_class_path
     base_metadata_list = None
-    
+
     if has_wildcards or (merge_namespace_metadata and has_wildcards):
         # Find all matching base classes and merge their metadata
         base_metadata_list = _find_base_classes_by_pattern(base_class_path, python_dir, current_root)
-        
+
         if len(base_metadata_list) > 1:
             metadata = _merge_metadata(base_metadata_list)
         elif len(base_metadata_list) == 1:
@@ -260,7 +260,7 @@ def get_graph_metadata(
             except (ImportError, AttributeError) as e:
                 logger.warning(f"Could not re-import base class from {module_path}: {e}")
                 continue
-        
+
         if updated_metadata_list:
             metadata = _merge_metadata(updated_metadata_list)
 
@@ -309,7 +309,7 @@ def get_graph_string(
 ) -> str:
     """
     Builds a graph structure and returns it as a serialized string.
-    
+
     This is a convenience wrapper that combines get_graph_metadata() and serialize_metadata()
     for backward compatibility.
     """
@@ -320,7 +320,7 @@ def get_graph_string(
         exclude_tables=exclude_tables,
         python_dir=python_dir,
     )
-    
+
     return serialize_metadata(
         metadata,
         format=format,
@@ -393,10 +393,10 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
     This function performs a structural comparison of two graph representations,
     checking tables, columns, types, constraints, and relationships.
     """
-    
+
     actual_tables = set(actual.tables.keys())
     expected_tables = set(expected.tables.keys())
-    
+
     # Check table names
     if actual_tables != expected_tables:
         missing = expected_tables - actual_tables
@@ -407,15 +407,15 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
         if extra:
             error_msg += f"  Extra tables: {extra}\n"
         raise AssertionError(error_msg)
-    
+
     # Check each table's structure
     for table_name in expected_tables:
         actual_table = actual.tables[table_name]
         expected_table = expected.tables[table_name]
-        
+
         actual_columns = {col.name: col for col in actual_table.columns}
         expected_columns = {col.name: col for col in expected_table.columns}
-        
+
         # Check column names
         if set(actual_columns.keys()) != set(expected_columns.keys()):
             missing = set(expected_columns.keys()) - set(actual_columns.keys())
@@ -426,12 +426,12 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
             if extra:
                 error_msg += f"  Extra columns: {extra}\n"
             raise AssertionError(error_msg)
-        
+
         # Check each column's properties
         for col_name in expected_columns.keys():
             actual_col = actual_columns[col_name]
             expected_col = expected_columns[col_name]
-            
+
             # Check type
             actual_type_str = str(actual_col.type)
             expected_type_str = str(expected_col.type)
@@ -440,7 +440,7 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
                     f"Type mismatch in table '{table_name}', column '{col_name}': "
                     f"expected {expected_type_str}, got {actual_type_str}"
                 )
-            
+
             # Check constraints
             actual_pk = actual_col.primary_key
             expected_pk = expected_col.primary_key
@@ -449,7 +449,7 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
                     f"Primary key mismatch in table '{table_name}', column '{col_name}': "
                     f"expected {expected_pk}, got {actual_pk}"
                 )
-            
+
             actual_fk_count = len(actual_col.foreign_keys)
             expected_fk_count = len(expected_col.foreign_keys)
             if actual_fk_count != expected_fk_count:
@@ -457,14 +457,14 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
                     f"Foreign key count mismatch in table '{table_name}', column '{col_name}': "
                     f"expected {expected_fk_count}, got {actual_fk_count}"
                 )
-            
+
             # Check nullable
             if actual_col.nullable != expected_col.nullable:
                 raise AssertionError(
                     f"Nullable mismatch in table '{table_name}', column '{col_name}': "
                     f"expected {expected_col.nullable}, got {actual_col.nullable}"
                 )
-            
+
             # Check comments (if not omitted)
             if not omit_comments:
                 actual_comment = actual_col.comment
@@ -474,7 +474,7 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
                         f"Comment mismatch in table '{table_name}', column '{col_name}': "
                         f"expected {expected_comment!r}, got {actual_comment!r}"
                     )
-        
+
         # Check foreign key relationships
         actual_fks = set()
         for col in actual_table.columns:
@@ -484,7 +484,7 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
                 target_table = ".".join(target_parts[:-1])
                 target_column = target_parts[-1]
                 actual_fks.add((table_name, col.name, target_table, target_column))
-        
+
         expected_fks = set()
         for col in expected_table.columns:
             for fk in col.foreign_keys:
@@ -492,7 +492,7 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
                 target_table = ".".join(target_parts[:-1])
                 target_column = target_parts[-1]
                 expected_fks.add((table_name, col.name, target_table, target_column))
-        
+
         if actual_fks != expected_fks:
             missing = expected_fks - actual_fks
             extra = actual_fks - expected_fks

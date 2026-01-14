@@ -10,7 +10,7 @@ def mermaid_assert(
 ) -> None:
     """
     Asserts that a mermaid graph (string or MetaData) matches expected structure.
-    
+
     This function supports two modes:
     1. Legacy mode: If actual is a string, performs basic string assertions (for backward compatibility)
     2. Dynamic mode: If actual is MetaData, compares it with expected MetaData
@@ -32,7 +32,7 @@ def mermaid_assert(
         assert "DATETIME created" in actual
 
         trailing_newline_assert(actual)
-    
+
     # Dynamic mode: MetaData comparison
     else:
         if expected is None:
