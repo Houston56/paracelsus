@@ -233,7 +233,6 @@ def get_graph_metadata(
         if any(pattern.errors):
             raise ValueError(pattern.serialized_errors)
 
-        current_root = Path.cwd()
         finder = ModuleFinder(current_root, pattern.tokens)
         needs_wildcards_import = import_modifier == "*"
 
@@ -488,7 +487,7 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
                     )
 
         # Check foreign key relationships
-        actual_fks = set()
+        actual_fks: set[tuple[str, ...]] = set()
         for col in actual_table.columns:
             for fk in col.foreign_keys:
                 # Format: (table_name, column_name) -> (target_table, target_column)
@@ -497,7 +496,7 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
                 target_column = target_parts[-1]
                 actual_fks.add((table_name, col.name, target_table, target_column))
 
-        expected_fks = set()
+        expected_fks: set[tuple[str, ...]] = set()
         for col in expected_table.columns:
             for fk in col.foreign_keys:
                 target_parts = fk.target_fullname.split(".")
@@ -506,11 +505,11 @@ def compare_metadata(actual: MetaData, expected: MetaData, omit_comments: bool =
                 expected_fks.add((table_name, col.name, target_table, target_column))
 
         if actual_fks != expected_fks:
-            missing = expected_fks - actual_fks
-            extra = actual_fks - expected_fks
+            missing_fks: set[tuple[str, ...]] = expected_fks - actual_fks
+            extra_fks: set[tuple[str, ...]] = actual_fks - expected_fks
             error_msg = f"Foreign key mismatch in table '{table_name}':\n"
             if missing:
-                error_msg += f"  Missing FKs: {missing}\n"
+                error_msg += f"  Missing FKs: {missing_fks}\n"
             if extra:
-                error_msg += f"  Extra FKs: {extra}\n"
+                error_msg += f"  Extra FKs: {extra_fks}\n"
             raise AssertionError(error_msg)
