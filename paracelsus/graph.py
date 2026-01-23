@@ -4,8 +4,6 @@ import os
 import re
 import sys
 from pathlib import Path
-from queue import Queue
-from threading import Thread
 from typing import Dict, List, Optional, Set, Union
 
 from sqlalchemy.schema import MetaData
@@ -44,31 +42,6 @@ def to_module_name(root: Path, path: Path) -> str:
         clean_path = relative_path
 
     return ".".join(clean_path.parts)
-
-
-def consume_import_tasks(queue: Queue[dict], sentinel: object):
-    while True:
-        item = queue.get()
-
-        if item is sentinel:
-            break
-
-        needs_wildcards_import, module_name = item.values()
-        try:
-            # Check if already loaded to save time
-            if module_name in sys.modules:
-                continue
-
-            if needs_wildcards_import:
-                exec(f"from {module_name} import *")
-            else:
-                importlib.import_module(module_name)
-
-        except ImportError as e:
-            logger.error(f"Failed to load {module_name}: {e}")
-            raise e
-        finally:
-            queue.task_done()
 
 
 def _find_base_classes_by_pattern(
@@ -215,10 +188,6 @@ def get_graph_metadata(
         base_class = getattr(base_module, class_name)
         metadata = base_class.metadata
 
-    import_queue_sentinel = object()
-    import_queue: Queue[Union[Dict[str, str], object]] = Queue()
-    import_worker = Thread(target=consume_import_tasks, args=(import_queue, import_queue_sentinel), daemon=True)
-    import_worker.start()
     # The modules holding the model classes have to be imported to get put in the metaclass model registry.
     # These modules aren't actually used in any way, so they are discarded.
     # They are also imported in scope of this function to prevent namespace pollution.
@@ -238,10 +207,19 @@ def get_graph_metadata(
 
         for file_path in finder.find():
             module_path = to_module_name(current_root, file_path)
-            import_queue.put({"needs_wildcards_import": needs_wildcards_import, "module_name": module_path})
 
-    import_queue.put(import_queue_sentinel)
-    import_worker.join()
+            # Check if already loaded to save time
+            if module_path in sys.modules:
+                continue
+
+            try:
+                if needs_wildcards_import:
+                    exec(f"from {module_path} import *")
+                else:
+                    importlib.import_module(module_path)
+            except ImportError as e:
+                logger.error(f"Failed to load {module_path}: {e}")
+                raise e
 
     # If we merged metadata from multiple base classes, we need to re-merge after models are imported
     # because models register themselves in the original base class metadata, not the merged one
